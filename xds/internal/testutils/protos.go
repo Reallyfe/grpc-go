@@ -94,9 +94,9 @@ func (clab *ClusterLoadAssignmentBuilder) AddLocality(subzone string, weight uin
 		if err != nil {
 			panic("failed to split " + a)
 		}
-		port, err := strconv.Atoi(portStr)
+		port, err := strconv.ParseUint(portStr, 10, 32)
 		if err != nil {
-			panic("failed to atoi " + portStr)
+			panic("failed to parse uint " + portStr)
 		}
 
 		lbe := &v2endpointpb.LbEndpoint{
