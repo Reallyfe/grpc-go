@@ -55,19 +55,23 @@ func (c *RLSConfig) ServiceConfigJSON() (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf(`
-{
-  "loadBalancingConfig": [
-    {
-      "rls_experimental": {
-        "routeLookupConfig": %s,
-				"routeLookupChannelServiceConfig": %s,
-        "childPolicy": %s,
-        "childPolicyConfigTargetFieldName": %q
-      }
-    }
-  ]
-}`, string(routeLookupCfg), c.RouteLookupChannelServiceConfig, string(childPolicy), c.ChildPolicyConfigTargetFieldName), nil
+	config := map[string]interface{}{
+		"loadBalancingConfig": []map[string]interface{}{
+			{
+				"rls_experimental": map[string]interface{}{
+					"routeLookupConfig":                json.RawMessage(routeLookupCfg),
+					"routeLookupChannelServiceConfig":  c.RouteLookupChannelServiceConfig,
+					"childPolicy":                      json.RawMessage(childPolicy),
+					"childPolicyConfigTargetFieldName": c.ChildPolicyConfigTargetFieldName,
+				},
+			},
+		},
+	}
+	result, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(result), nil
 }
 
 // LoadBalancingConfig generates load balancing config which can used as part of
@@ -86,13 +90,16 @@ func (c *RLSConfig) LoadBalancingConfig() (serviceconfig.LoadBalancingConfig, er
 	if err != nil {
 		return nil, err
 	}
-	lbConfigJSON := fmt.Sprintf(`
-{
-  "routeLookupConfig": %s,
-  "routeLookupChannelServiceConfig": %s,
-  "childPolicy": %s,
-  "childPolicyConfigTargetFieldName": %q
-}`, string(routeLookupCfg), c.RouteLookupChannelServiceConfig, string(childPolicy), c.ChildPolicyConfigTargetFieldName)
+	lbConfig := map[string]interface{}{
+		"routeLookupConfig":                json.RawMessage(routeLookupCfg),
+		"routeLookupChannelServiceConfig":  c.RouteLookupChannelServiceConfig,
+		"childPolicy":                      json.RawMessage(childPolicy),
+		"childPolicyConfigTargetFieldName": c.ChildPolicyConfigTargetFieldName,
+	}
+	lbConfigJSON, err := json.MarshalIndent(lbConfig, "", "  ")
+	if err != nil {
+		return nil, err
+	}
 
 	builder := balancer.Get("rls_experimental")
 	if builder == nil {
