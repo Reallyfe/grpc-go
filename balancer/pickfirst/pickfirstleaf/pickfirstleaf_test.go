@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/internal/grpctest"
 	"google.golang.org/grpc/internal/testutils"
+	"google.golang.org/grpc/internal/testutils/stats"
 	"google.golang.org/grpc/resolver"
 )
 
@@ -73,20 +74,7 @@ func (s) TestAddressList_Iteration(t *testing.T) {
 	}
 
 	addressList := addressList{}
-	emptyAddress := resolver.Address{}
-	if got, want := addressList.first(), emptyAddress; got != want {
-		t.Fatalf("addressList.first() = %v, want %v", got, want)
-	}
-
 	addressList.updateAddrs(addrs)
-
-	if got, want := addressList.first(), addressList.currentAddress(); got != want {
-		t.Fatalf("addressList.first() = %v, want %v", got, want)
-	}
-
-	if got, want := addressList.first(), addrs[0]; got != want {
-		t.Fatalf("addressList.first() = %v, want %v", got, want)
-	}
 
 	for i := 0; i < len(addrs); i++ {
 		if got, want := addressList.isValid(), true; got != want {
@@ -208,7 +196,7 @@ func (s) TestPickFirstLeaf_TFPickerUpdate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTestTimeout)
 	defer cancel()
 	cc := testutils.NewBalancerClientConn(t)
-	bal := pickfirstBuilder{}.Build(cc, balancer.BuildOptions{})
+	bal := pickfirstBuilder{}.Build(cc, balancer.BuildOptions{MetricsRecorder: &stats.NoopMetricsRecorder{}})
 	defer bal.Close()
 	ccState := balancer.ClientConnState{
 		ResolverState: resolver.State{

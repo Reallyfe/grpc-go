@@ -23,7 +23,7 @@ package main
 import (
 	"context"
 	"log"
-	"math/rand"
+	rand "math/rand/v2"
 	"net"
 	"time"
 
@@ -55,13 +55,13 @@ type slowServer struct {
 // SayHello implements helloworld.GreeterServer
 func (s *slowServer) SayHello(_ context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
 	// Delay 100ms ~ 200ms before replying
-	time.Sleep(time.Duration(100+rand.Intn(100)) * time.Millisecond)
+	time.Sleep(time.Duration(100+rand.IntN(100)) * time.Millisecond)
 	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
 }
 
 func main() {
 	/***** Set up the server serving channelz service. *****/
-	lis, err := net.Listen("tcp", ":50051")
+	lis, err := net.Listen("tcp", ":50052")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}

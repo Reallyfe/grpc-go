@@ -41,6 +41,7 @@ func (c *testClientConn) NewSubConn(addrs []resolver.Address, opts balancer.NewS
 func (c *testClientConn) UpdateState(balancer.State) {}
 
 type testSubConn struct {
+	balancer.SubConn
 	updateState func(balancer.SubConnState)
 }
 
@@ -53,6 +54,9 @@ func (sc *testSubConn) Shutdown() {}
 func (sc *testSubConn) GetOrBuildProducer(balancer.ProducerBuilder) (balancer.Producer, func()) {
 	return nil, nil
 }
+
+// RegisterHealthListener is a no-op.
+func (*testSubConn) RegisterHealthListener(func(balancer.SubConnState)) {}
 
 // testPickBuilder creates balancer.Picker for test.
 type testPickBuilder struct {

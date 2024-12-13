@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
+	"google.golang.org/grpc/internal/stubserver"
 	"google.golang.org/grpc/internal/testutils"
 	"google.golang.org/grpc/internal/testutils/xds/e2e"
 	"google.golang.org/grpc/internal/testutils/xds/e2e/setup"
@@ -157,24 +158,21 @@ func (s) TestServerSideXDS_WithNoCertificateProvidersInBootstrap_Failure(t *test
 			close(servingModeCh)
 		}
 	})
-	server, err := xds.NewGRPCServer(grpc.Creds(creds), modeChangeOpt, xds.BootstrapContentsForTesting(bs))
-	if err != nil {
-		t.Fatalf("Failed to create an xDS enabled gRPC server: %v", err)
-	}
-	testgrpc.RegisterTestServiceServer(server, &testService{})
-	defer server.Stop()
 
-	// Create a local listener and pass it to Serve().
+	// Create a local listener and assign it to the stub server.
 	lis, err := testutils.LocalTCPListener()
 	if err != nil {
 		t.Fatalf("testutils.LocalTCPListener() failed: %v", err)
 	}
 
-	go func() {
-		if err := server.Serve(lis); err != nil {
-			t.Errorf("Serve() failed: %v", err)
-		}
-	}()
+	stub := &stubserver.StubServer{
+		Listener: lis,
+	}
+	if stub.S, err = xds.NewGRPCServer(grpc.Creds(creds), modeChangeOpt, xds.BootstrapContentsForTesting(bs)); err != nil {
+		t.Fatalf("Failed to create an xDS enabled gRPC server: %v", err)
+	}
+	defer stub.S.Stop()
+	stubserver.StartTestService(t, stub)
 
 	// Create an inbound xDS listener resource for the server side that contains
 	// mTLS security configuration. Since the received certificate provider
@@ -268,9 +266,9 @@ func (s) TestServerSideXDS_WithValidAndInvalidSecurityConfiguration(t *testing.T
 		t.Fatalf("testutils.LocalTCPListener() failed: %v", err)
 	}
 
-	// Create an xDS-enabled grpc server that is configured to use xDS
-	// credentials, and register the test service on it. Configure a mode change
-	// option that closes a channel when listener2 enter serving mode.
+	// Create an xDS-enabled gRPC server that is configured to use xDS
+	// credentials and assigned to a stub server, configuring a mode change
+	// option that closes a channel when listener2 enters serving mode.
 	creds, err := xdscreds.NewServerCredentials(xdscreds.ServerOptions{FallbackCreds: insecure.NewCredentials()})
 	if err != nil {
 		t.Fatal(err)
@@ -283,23 +281,11 @@ func (s) TestServerSideXDS_WithValidAndInvalidSecurityConfiguration(t *testing.T
 			}
 		}
 	})
-	server, err := xds.NewGRPCServer(grpc.Creds(creds), modeChangeOpt, xds.BootstrapContentsForTesting(bootstrapContents))
-	if err != nil {
-		t.Fatalf("Failed to create an xDS enabled gRPC server: %v", err)
-	}
-	testgrpc.RegisterTestServiceServer(server, &testService{})
-	defer server.Stop()
 
-	go func() {
-		if err := server.Serve(lis1); err != nil {
-			t.Errorf("Serve() failed: %v", err)
-		}
-	}()
-	go func() {
-		if err := server.Serve(lis2); err != nil {
-			t.Errorf("Serve() failed: %v", err)
-		}
-	}()
+	stub1 := createStubServer(t, lis1, creds, modeChangeOpt, bootstrapContents)
+	defer stub1.S.Stop()
+	stub2 := createStubServer(t, lis2, creds, modeChangeOpt, bootstrapContents)
+	defer stub2.S.Stop()
 
 	// Create inbound xDS listener resources for the server side that contains
 	// mTLS security configuration.
